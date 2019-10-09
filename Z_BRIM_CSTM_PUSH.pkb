@@ -1,27 +1,42 @@
-/* Formatted on 6/28/2016 3:16:13 PM (QP5 v5.287) */
+/* Formatted on 12/9/2016 4:46:23 PM (QP5 v5.294) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
    /****************************************************************************
     REVISIONS:
-    Ver    Date      Author          Description
-    -----  --------  --------------  -------------------------------------------
-    0.9.0  20150807  Marie Hicks     Created this package based on sample code
-                                       found in Integrating Recruiter with Banner
-                                       release 3.7.1 page 28
-    1.0.0  20150810  Carl Ellsworth  Cleanup and revision for testing.
-    1.0.1  20150811  Marie Hicks     Corrected a couple of the calls to the
-                                       srtcstm_c cursor
-    1.0.2  20150811  Marie Hicks     Corrected a call to the srtcstm_c
-                                       cursor concerning highschoolgraddate
-    1.0.3  20150813  Marie Hicks     Corrected custom field sequencing, added the
-                                       fields needed to pull admission attributes
-    1.0.4  20151116  Marie Hicks     Corrected custom field sequencing, altered
-                                       concentration logic
-    1.0.5  20160623  Marie Hicks     conversion of the concentration code removed,
-                                       updated entity, and a couple column labels
-    1.0.6  20160628  Marie Hicks     corrected 'contact' variable to
-                                       'datatel_usuundergraduateapplication'
-    1.1.0  20160628  Carl Ellsworth  added p_update_transfer_gpa
+    Ver      Date      Author          Description
+    -------  --------  --------------  -------------------------------------------
+    0.9.0    20150807  Marie Hicks     Created this package based on sample code
+                                         found in Integrating Recruiter with Banner
+                                         release 3.7.1 page 28
+    1.0.0    20150810  Carl Ellsworth  Cleanup and revision for testing.
+    1.0.1    20150811  Marie Hicks     Corrected a couple of the calls to the
+                                         srtcstm_c cursor
+    1.0.2    20150811  Marie Hicks     Corrected a call to the srtcstm_c
+                                         cursor concerning highschoolgraddate
+    1.0.3    20150813  Marie Hicks     Corrected custom field sequencing, added the
+                                         fields needed to pull admission attributes
+    1.0.4    20151116  Marie Hicks     Corrected custom field sequencing, altered
+                                         concentration logic
+    1.0.5    20160623  Marie Hicks     conversion of the concentration code removed,
+                                         updated entity, and a couple column labels
+    1.0.6    20160628  Marie Hicks     corrected 'contact' variable to
+                                         'datatel_usuundergraduateapplication'
+    1.1.0    20160628  Carl Ellsworth  added p_update_transfer_gpa
+    1.1.1    20160705  Marie Hicks,    added p_insert_sorints
+                       Carl Ellsworth
+    1.1.2    20160726  Carl Ellsworth  revampted p_insert_sorints for ints_code inserts
+    1.1.3    20160908  Marie Hicks     added deferement reason interest code from Recruiter
+    1.1.4    20160913  Marie Hicks     detail code corrections
+    1.1.5    20160922  Marie Hicks     updated Banner interest code logic,
+                                         corrected several Recruiter values to Yes/No
+                                         from their assumed true/false values
+    1.1.5.1  20160923  Marie Hicks     variable correction
+    1.1.6    20160926  Marie Hicks     changed srtcstm_entity parameter to accept
+                                         wildcard after specific prefix,
+                                         changed all datatel_usuundergraduateapplication
+                                         to datatel_usu
+    1.2.0    20161209  Carl Ellsworth  added p_org_id_in to srkrcmp.p_insert_srtrcmp
+                                         calls. unexpected changte in ellucian functionality
    ****************************************************************************/
 
 
@@ -45,6 +60,98 @@ AS
              AND sordegr_degc_code = p_degc_code;
    END p_update_transfer_gpa;
 
+   --p_insert_sorints is a procedure provided for Marie Hicks as a method for
+   -- inserting specific interests into Banner.
+   PROCEDURE p_insert_sorints (p_pidm         NUMBER,
+                               p_ints_code    VARCHAR2,
+                               p_date         DATE DEFAULT SYSDATE)
+   IS
+      v_count         NUMBER := 0;
+
+      EX_VALIDATION   EXCEPTION;
+   BEGIN
+      --check for ints_code existence
+      SELECT COUNT (stvints_code)
+        INTO v_count
+        FROM stvints
+       WHERE stvints_code = p_ints_code;
+
+
+      IF (v_count = 1)
+      --if it exists, insert the interest record
+      THEN
+         INSERT
+           INTO sorints (sorints_pidm,
+                         sorints_ints_code,
+                         sorints_activity_date)
+         VALUES (p_pidm, p_ints_code, p_date);
+      ELSIF (v_count = 0)
+      --if not raise validation exception
+      THEN
+         RAISE EX_VALIDATION;
+      END IF;
+   EXCEPTION
+      WHEN DUP_VAL_ON_INDEX
+      THEN
+         DBMS_OUTPUT.put_line (
+               'Attribute code '
+            || p_ints_code
+            || ' already assigned to pidm '
+            || p_pidm);
+      WHEN EX_VALIDATION
+      THEN
+         DBMS_OUTPUT.put_line (
+            'Attribute code ' || p_ints_code || ' does not appear to exist');
+   END p_insert_sorints;
+
+   /*
+      --p_insert_sorints is a procedure provided by Marie Hicks as a method for
+      -- importing interests from CRM Recruit to Banner.
+      PROCEDURE p_insert_sorints (p_ridm NUMBER, p_pidm NUMBER)
+      IS
+         cnt         NUMBER := 0;
+         rul_cnt     NUMBER := 0;
+         ints_code   srtints.srtints_ints_code%TYPE;
+
+         CURSOR sorints_C
+         IS
+            SELECT srtints_ints_code
+              FROM stvints, srtints
+             WHERE     srtints_ridm = p_ridm
+                   AND stvints_code = srtints_ints_code
+                   AND srtints_ints_code NOT IN (SELECT sorints_ints_code
+                                                   FROM sorints
+                                                  WHERE sorints_pidm = p_pidm);
+      BEGIN
+         --grab interestmax from SARERUL
+         SELECT TO_NUMBER (
+                   DECODE (sarerul_value,
+                           NULL, '99',
+                           'ALL', '99',
+                           sarerul_value))
+                   interestmax
+           INTO rul_cnt
+           FROM sarerul
+          WHERE sarerul_egrp_code = 'PREL' AND sarerul_function = 'INTERESTMAX';
+
+         OPEN sorints_C;
+
+         LOOP
+            FETCH sorints_C INTO ints_code;
+
+            cnt := cnt + 1;
+            EXIT WHEN sorints_C%NOTFOUND OR cnt > rul_cnt;
+
+            INSERT
+              INTO sorints (sorints_pidm,
+                            sorints_ints_code,
+                            sorints_activity_date)
+            VALUES (p_pidm, ints_code, SYSDATE);
+         END LOOP;
+
+         CLOSE sorints_C;
+      END p_insert_sorints;
+   */
 
    --p_push is the main procedure provided by ellucian and updated by Marie to
    -- contain custom fields specific to USU processes.
@@ -63,7 +170,8 @@ AS
       lv_cstm_scel_code     srtcstm.srtcstm_value%TYPE := NULL; --scholarship eligibility attribute from Recruiter
       lv_cstm_2bai_code     srtcstm.srtcstm_value%TYPE := NULL; --second bachelor aid attribute from Recruiter
       lv_cstm_site_code     srtcstm.srtcstm_value%TYPE := NULL; --site code from Recruiter
-      lv_cstm_conc_code     stvmajr.stvmajr_code%TYPE := NULL; --concentration description converted to code
+      lv_cstm_conc_code     stvmajr.stvmajr_code%TYPE := NULL; --concentration code from Recruiter
+      lv_cstm_ints_code     srtcstm.srtcstm_value%TYPE := NULL; --deferement reason interest code from Recruiter
 
       lv_resd_code          srtprel.srtprel_resd_code%TYPE := NULL; --validated residency code
       lv_dcsn_code          srtprel.srtprel_apdc_code%TYPE := NULL; --validated decision code
@@ -77,6 +185,7 @@ AS
       lv_2bai_code          saraatt.saraatt_atts_code%TYPE := NULL; --validated 2B aid eligibility code
       lv_site_code          srtprel.srtprel_site_code%TYPE := NULL; --validated site code
       lv_conc_code          srtprel.srtprel_majr_code%TYPE := NULL; --validated concentration code
+      lv_ints_code          sorints.sorints_ints_code%TYPE := NULL; --converted deferment interest code
 
       lv_pidm               srtiden.srtiden_pidm%TYPE := NULL; --matched pidm for accessing Banner tables
       lv_term_code          srtprel.srtprel_term_code%TYPE := NULL; --application term code
@@ -103,6 +212,8 @@ AS
       lv_severity_out       VARCHAR2 (1) := NULL;
       lv_lfos_seqno_out     sorlfos.sorlfos_seqno%TYPE;
 
+      p_org_id_in           srtrcmp.srtrcmp_recruiter_org_id%TYPE := 'MAIN';
+
       -- custom field cursor
 
       CURSOR srtcstm_c (
@@ -113,7 +224,7 @@ AS
          SELECT srtcstm_value
            FROM srtcstm
           WHERE     srtcstm_ridm = p_cstm_ridm
-                AND srtcstm_entity = p_cstm_entity
+                AND srtcstm_entity LIKE p_cstm_entity || '%'  --updated v1.1.6
                 AND srtcstm_attribute = p_cstm_attribute
                 AND srtcstm_value IS NOT NULL;
 
@@ -242,9 +353,8 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',  --updated v1.0.6
-                      'new_usureentrystudent');               --updated v1.0.5
+      OPEN srtcstm_c (p_ridm, 'datatel_usu',                  --updated v1.1.6
+                                            'new_usureentrystudent'); --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_rnty_code;
 
@@ -255,9 +365,8 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',  --updated v1.0.6
-                      'new_usufirstgenerationcollege');       --updated v1.0.5
+      OPEN srtcstm_c (p_ridm, 'datatel_usu',                  --updated v1.1.6
+                                            'new_usufirstgenerationcollege'); --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_fgen_code;
 
@@ -268,10 +377,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',  --updated v1.0.6
-                      'new_veteranorservicemember'            --updated v1.0.5
-                                                  );
+      OPEN srtcstm_c (p_ridm, 'datatel_usu',                  --updated v1.1.6
+                                            'new_veteranorservicemember' --updated v1.0.5
+                                                                        );
 
       FETCH srtcstm_c INTO lv_cstm_avet_code;
 
@@ -282,9 +390,8 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',  --updated v1.0.6
-                      'new_benefitsveteran');                 --updated v1.0.5
+      OPEN srtcstm_c (p_ridm, 'datatel_usu',                  --updated v1.1.6
+                                            'new_benefitsveteran'); --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_vben_code;
 
@@ -306,10 +413,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',  --updated v1.0.5
-                      'new_highschoolgraddate'                --updated v1.0.2
-                                              );
+      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.1.4
+                                        'new_highschoolgraddate' --updated v1.0.2
+                                                                );
 
       FETCH srtcstm_c INTO lv_cstm_grad_date;
 
@@ -369,6 +475,18 @@ AS
 
       CLOSE srtcstm_c;
 
+      OPEN srtcstm_c (p_ridm, 'datatel_usu',                  --updated v1.1.6
+                                            'new_defermentreason');
+
+      FETCH srtcstm_c INTO lv_cstm_ints_code;
+
+      IF srtcstm_c%NOTFOUND
+      THEN
+         lv_cstm_ints_code := NULL;
+      END IF;
+
+      CLOSE srtcstm_c;
+
       -- return if no values
       IF (    lv_cstm_resd_desc IS NULL
           AND lv_cstm_dcsn_code IS NULL
@@ -381,7 +499,8 @@ AS
           AND lv_cstm_scel_code IS NULL
           AND lv_cstm_2bai_code IS NULL
           AND lv_cstm_site_code IS NULL
-          AND lv_cstm_conc_code IS NULL)
+          AND lv_cstm_conc_code IS NULL
+          AND lv_cstm_ints_code IS NULL)
       THEN
          RETURN;
       END IF;
@@ -436,7 +555,7 @@ AS
 
       --added v1.0.3
       --convert reentry value to attribute code
-      IF (lv_cstm_rnty_code = 'True')
+      IF (lv_cstm_rnty_code = 'Yes')
       THEN
          lv_cstm_rnty_code := 'RA5Y';
       ELSE
@@ -458,7 +577,7 @@ AS
 
       --added v1.0.3
       --convert first generation value to attribute
-      IF (lv_cstm_fgen_code = 'True')
+      IF (lv_cstm_fgen_code = 'Yes')
       THEN
          lv_cstm_fgen_code := 'FGS';
       ELSE
@@ -482,7 +601,7 @@ AS
 
       --added v1.0.3
       --convert veteran value to attribute code
-      IF (lv_cstm_avet_code = 'True')
+      IF (lv_cstm_avet_code = 'Yes')
       THEN
          lv_cstm_avet_code := 'AVET';
       ELSE
@@ -504,7 +623,7 @@ AS
 
       --added v1.0.3
       --convert veteran benefits value to attribute code
-      IF (lv_cstm_vben_code = 'True')
+      IF (lv_cstm_vben_code = 'Yes')
       THEN
          lv_cstm_vben_code := 'VDEP';
       ELSE
@@ -541,7 +660,8 @@ AS
       --convert to valid graduation date
       IF (lv_cstm_grad_date IS NOT NULL)
       THEN
-         lv_grad_date := TO_DATE (lv_cstm_grad_date, 'mm/dd/yyyy hh:mi:ss AM');
+         lv_grad_date :=
+            TO_DATE (lv_cstm_grad_date, 'mm/dd/yyyy hh:mi:ss AM');
       END IF;
 
 
@@ -601,6 +721,12 @@ AS
       END IF;
 
       lv_conc_code := TO_CHAR (lv_cstm_conc_code);
+
+      -- extract Banner interest code from custom Recruiter interest string
+      IF (lv_cstm_ints_code IS NOT NULL)
+      THEN
+         lv_ints_code := SUBSTR (lv_cstm_ints_code, 1, 2);
+      END IF;
 
       --get application number
       OPEN saradap_c (lv_pidm, lv_term_code, lv_appl_id);
@@ -851,6 +977,7 @@ AS
          IF (lv_curriculum_cnt > 1)
          THEN
             srkrcmp.p_insert_srtrcmp (p_ridm,
+                                      p_org_id_in,
                                       'P',
                                       g$_nls.get (
                                          'BRIM_CSTM_PUSH-0023',
@@ -866,6 +993,7 @@ AS
          IF (lv_curriculum_cnt = 0)
          THEN
             srkrcmp.p_insert_srtrcmp (p_ridm,
+                                      p_org_id_in,
                                       'P',
                                       g$_nls.get (
                                          'BRIM_CSTM_PUSH-0024',
@@ -897,6 +1025,7 @@ AS
          IF (lv_fieldofstudy_cnt > 1)
          THEN
             srkrcmp.p_insert_srtrcmp (p_ridm,
+                                      p_org_id_in,
                                       'P',
                                       g$_nls.get (
                                          'BRIM_CSTM_PUSH-0025',
@@ -912,6 +1041,7 @@ AS
          IF (lv_fieldofstudy_cnt = 0)
          THEN
             srkrcmp.p_insert_srtrcmp (p_ridm,
+                                      p_org_id_in,
                                       'P',
                                       g$_nls.get (
                                          'BRIM_CSTM_PUSH-0026',
@@ -962,6 +1092,7 @@ AS
                   CLOSE sorccon_c;
 
                   srkrcmp.p_insert_srtrcmp (p_ridm,
+                                            p_org_id_in,
                                             'P',
                                             g$_nls.get (
                                                'BRIM_CSTM_PUSH-0027',
@@ -1043,6 +1174,24 @@ AS
                                            'SQL',
                                            'Error occurred attempting to create application decision record: %01%',
                                            SQLERRM));
+         END;
+      END IF;
+
+      -- create deferment interest code
+      IF (lv_cstm_ints_code IS NOT NULL)
+      THEN
+         BEGIN
+            p_insert_sorints (p_pidm => lv_pidm, p_ints_code => lv_ints_code);
+         EXCEPTION
+            WHEN OTHERS
+            THEN
+               raise_application_error (-20001,
+                                        g$_nls.get (
+                                           'BRIM_CSTM_PUSH_0030',
+                                           'SQL',
+                                           'Error occurred attempting to create deferment interest code; %01%',
+                                           SQLERRM));
+               lv_dcsn_expt_cnt := lv_dcsn_expt_cnt + 1;
          END;
       END IF;
    END p_push;
