@@ -1,5 +1,5 @@
-/* Formatted on 8/14/2015 3:45:47 PM (QP5 v5.269.14213.34746) */
-CREATE OR REPLACE PACKAGE BODY baninst1.z_brim_cstm_push
+/* Formatted on 11/16/2015 6:05:52 PM (QP5 v5.269.14213.34746) */
+CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
    /****************************************************************************
     REVISIONS:
@@ -15,6 +15,8 @@ AS
                                        cursor concerning highschoolgraddate
     1.0.3  20150813  Marie Hicks     Corrected custom field sequencing, added the
                                        fields needed to pull admission attributes
+    1.0.4  20151116  Marie Hicks     Corrected custom field sequencing, altered
+                                       concentration logic
    ****************************************************************************/
    PROCEDURE p_push (p_ridm NUMBER)
    IS
@@ -31,7 +33,12 @@ AS
       lv_cstm_scel_code     srtcstm.srtcstm_value%TYPE := NULL; --scholarship eligibility attribute from Recruiter
       lv_cstm_2bai_code     srtcstm.srtcstm_value%TYPE := NULL; --second bachelor aid attribute from Recruiter
       lv_cstm_site_code     srtcstm.srtcstm_value%TYPE := NULL; --site code from Recruiter
-      lv_cstm_conc_code     srtcstm.srtcstm_value%TYPE := NULL; --concentration code from Recruiter
+
+      --REMOVED 1.0.4
+      --lv_cstm_conc_code     srtcstm.srtcstm_value%TYPE := NULL; --concentration code from Recruiter
+      --ADDED 1.0.4
+      lv_cstm_conc_desc     srtcstm.srtcstm_value%TYPE := NULL; --concentration description from Recruiter
+      lv_cstm_conc_code     stvmajr.stvmajr_code%TYPE := NULL; --concentration description converted to code
 
       lv_resd_code          srtprel.srtprel_resd_code%TYPE := NULL; --validated residency code
       lv_dcsn_code          srtprel.srtprel_apdc_code%TYPE := NULL; --validated decision code
@@ -238,7 +245,8 @@ AS
 
       OPEN srtcstm_c (p_ridm,
                       'datatel_usuundergraduateapplication',
-                      'datatel_usveteran');
+                      'new_veteran'                            --UPDATED 1.0.4
+                                   );
 
       FETCH srtcstm_c INTO lv_cstm_avet_code;
 
@@ -250,7 +258,7 @@ AS
       CLOSE srtcstm_c;
 
       OPEN srtcstm_c (p_ridm,
-                      'usuundergraduateapplication',
+                      'datatel_usuundergraduateapplication',   --UPDATED 1.0.4
                       'new_veteranbenefits');
 
       FETCH srtcstm_c INTO lv_cstm_vben_code;
@@ -286,10 +294,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
-                      'new_scholarshipeligibility'     --updated v1.0.3 (typo)
-                                                  );
+      OPEN srtcstm_c (p_ridm, 'contact',                       --UPDATED 1.0.4
+                                        'new_scholarshipeligibility' --updated v1.0.3 (typo)
+                                                                    );
 
       FETCH srtcstm_c INTO lv_cstm_scel_code;
 
@@ -300,9 +307,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
-                      'new_secondbachelor');
+      OPEN srtcstm_c (p_ridm, 'contact',                       --updated 1.0.4
+                                        'new_secondbachelorattribute' --updated 1.0.4
+                                                                     );
 
       FETCH srtcstm_c INTO lv_cstm_2bai_code;
 
@@ -324,19 +331,17 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
-                      'new_emphasisspecialization');
+      OPEN srtcstm_c (p_ridm, 'contact',                       --updated 1.0.4
+                                        'new_emphasisspecialization');
 
-      FETCH srtcstm_c INTO lv_cstm_conc_code;
+      FETCH srtcstm_c INTO lv_cstm_conc_desc;                  --updated 1.0.4
 
       IF srtcstm_c%NOTFOUND
       THEN
-         lv_cstm_conc_code := NULL;
+         lv_cstm_conc_desc := NULL;                            --updated 1.0.4
       END IF;
 
       CLOSE srtcstm_c;
-
 
       -- return if no values
       IF (    lv_cstm_resd_desc IS NULL
@@ -555,6 +560,103 @@ AS
 
       lv_site_code := TO_CHAR (lv_cstm_site_code);
 
+      /* BEGIN Section added v1.0.4 */
+      -- convert concentration description to code
+      IF (lv_cstm_conc_desc = 'Animal & Dairy')
+      THEN
+         lv_cstm_conc_code := 'ANDS';
+      ELSIF (lv_cstm_conc_desc = 'Biology')
+      THEN
+         lv_cstm_conc_code := 'BIOL';
+      ELSIF (lv_cstm_conc_desc = 'Biochemistry')
+      THEN
+         lv_cstm_conc_code := 'BIOC';
+      ELSIF (lv_cstm_conc_desc = 'Biotechnology')
+      THEN
+         lv_cstm_conc_code := 'BIOT';
+      ELSIF (lv_cstm_conc_desc = 'Bioveterinary')
+      THEN
+         lv_cstm_conc_code := 'BVET';
+      ELSIF (lv_cstm_conc_desc = 'Cellular Molecular')
+      THEN
+         lv_cstm_conc_code := 'CEMO';
+      ELSIF (lv_cstm_conc_desc = 'Chemical Education')
+      THEN
+         lv_cstm_conc_code := 'CHED';
+      ELSIF (lv_cstm_conc_desc = 'Dietetics')
+      THEN
+         lv_cstm_conc_code := 'DTCS';
+      ELSIF (lv_cstm_conc_desc = 'Ecological Biodiversity')
+      THEN
+         lv_cstm_conc_code := 'ECBD';
+      ELSIF (lv_cstm_conc_desc = 'Environmental Biology')
+      THEN
+         lv_cstm_conc_code := 'ENVR';
+      ELSIF (lv_cstm_conc_desc = 'Environmental Chemistry')
+      THEN
+         lv_cstm_conc_code := 'ENCH';
+      ELSIF (lv_cstm_conc_desc = 'Environmental Health')
+      THEN
+         lv_cstm_conc_code := 'ENHE';
+      ELSIF (lv_cstm_conc_desc = 'Equine Science & Management')
+      THEN
+         lv_cstm_conc_code := 'EQSM';
+      ELSIF (lv_cstm_conc_desc = 'Exercise Science')
+      THEN
+         lv_cstm_conc_code := 'EXSC';
+      ELSIF (lv_cstm_conc_desc = 'Food Science')
+      THEN
+         lv_cstm_conc_code := 'FDSC';
+      ELSIF (lv_cstm_conc_desc = 'History Teaching')
+      THEN
+         lv_cstm_conc_code := 'HTCH';
+      ELSIF (lv_cstm_conc_desc = 'Industrial Hygiene')
+      THEN
+         lv_cstm_conc_code := 'INHY';
+      ELSIF (lv_cstm_conc_desc = 'Life Science')
+      THEN
+         lv_cstm_conc_code := 'LISC';
+      ELSIF (lv_cstm_conc_desc = 'Nutrition Science')
+      THEN
+         lv_cstm_conc_code := 'NTSC';
+      ELSIF (lv_cstm_conc_desc = 'Physical Education Teaching')
+      THEN
+         lv_cstm_conc_code := 'PHET';
+      ELSIF (lv_cstm_conc_desc = 'Pre Physical Therapy')
+      THEN
+         lv_cstm_conc_code := 'PPTH';
+      ELSIF (lv_cstm_conc_desc = 'Professional Chemist')
+      THEN
+         lv_cstm_conc_code := 'PRCH';
+      ELSIF (lv_cstm_conc_desc = 'Public Health Education')
+      THEN
+         lv_cstm_conc_code := 'PHEE';
+      ELSIF (lv_cstm_conc_desc = 'French Teaching')
+      THEN
+         lv_cstm_conc_code := 'FRTE';
+      ELSIF (lv_cstm_conc_desc = 'German Teaching')
+      THEN
+         lv_cstm_conc_code := 'GETE';
+      ELSIF (lv_cstm_conc_desc = 'Spanish Teaching')
+      THEN
+         lv_cstm_conc_code := 'SPTE';
+      ELSIF (lv_cstm_conc_desc = 'English Teaching')
+      THEN
+         lv_cstm_conc_code := 'ENGT';
+      ELSIF (lv_cstm_conc_desc IS NOT NULL)
+      THEN
+         raise_application_error (-20001,
+                                  g$_nls.get (
+                                     'BRIM_CSTM_PUSH-0012',
+                                     'SQL',
+                                     'Invalid concentration description, cannot convert: %01%',
+                                     TO_CHAR (lv_cstm_conc_desc)));
+      ELSE
+         lv_cstm_conc_code := NULL;
+      END IF;
+
+      /* END section added v1.0.4 */
+
       --verify valid concentration code
       IF (    lv_cstm_conc_code IS NOT NULL
           AND gb_stvmajr.f_concentration_code_exists (
@@ -562,7 +664,7 @@ AS
       THEN
          raise_application_error (-20001,
                                   g$_nls.get (
-                                     'BRIM_CSTM_PUSH_0012',
+                                     'BRIM_CSTM_PUSH_0013',
                                      'SQL',
                                      'Invalid concentration code: %01%',
                                      TO_CHAR (lv_cstm_conc_code)));
@@ -601,7 +703,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUST_0013',
+                                           'BRIM_CSTM_PUST_0014',
                                            'SQL',
                                            'Error occurred attempting to update legacy code; %01%',
                                            SQLERRM));
@@ -621,7 +723,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CMST_PUSH_0014',
+                                           'BRIM_CMST_PUSH_0015',
                                            'SQL',
                                            'Error occurred attempting to update high school record; %01%',
                                            SQLERRM));
@@ -644,15 +746,18 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSMT_PUSH_0015',
+                                           'BRIM_CSMT_PUSH_0016',
                                            'SQL',
                                            'Error occurred attempting to update admissions application; %01%',
                                            SQLERRM));
                lv_dcsn_expt_cnt := lv_dcsn_expt_cnt + 1;
          END;
+      ELSE
+         --ADDED 1.0.4
+         lv_dcsn_expt_cnt := lv_dcsn_expt_cnt + 1;
       END IF;
 
-      /* BEGEN Section added v1.0.3 */
+      /* BEGIN Section added v1.0.3 */
 
       -- create re-entry attribute
       IF (lv_rnty_code IS NOT NULL)
@@ -668,7 +773,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH_0016',
+                                           'BRIM_CSTM_PUSH_0017',
                                            'SQL',
                                            'Error occurred attempting to create re-entry attribute; %01%',
                                            SQLERRM));
@@ -690,7 +795,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH_0017',
+                                           'BRIM_CSTM_PUSH_0018',
                                            'SQL',
                                            'Error occurred attempting to create first generation attribute; %01%',
                                            SQLERRM));
@@ -712,7 +817,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH_0018',
+                                           'BRIM_CSTM_PUSH_0019',
                                            'SQL',
                                            'Error occurred attempting to create veteran attribute; %01%',
                                            SQLERRM));
@@ -734,7 +839,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH_0019',
+                                           'BRIM_CSTM_PUSH_0020',
                                            'SQL',
                                            'Error occurred attempting to create veteran benefits attribute; %01%',
                                            SQLERRM));
@@ -756,7 +861,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH_0020',
+                                           'BRIM_CSTM_PUSH_0021',
                                            'SQL',
                                            'Error occurred attempting to create scholarship eligibility attribute; %01%',
                                            SQLERRM));
@@ -778,7 +883,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH_0021',
+                                           'BRIM_CSTM_PUSH_0022',
                                            'SQL',
                                            'Error occurred attempting to create second bachelor type attribute; %01%',
                                            SQLERRM));
@@ -818,7 +923,7 @@ AS
             srkrcmp.p_insert_srtrcmp (p_ridm,
                                       'P',
                                       g$_nls.get (
-                                         'BRIM_CSTM_PUSH-0022', --updated v1.0.3
+                                         'BRIM_CSTM_PUSH-0023',
                                          'SQL',
                                          'Concentration code %01% not processed - found more than one curriculum record for the application',
                                          lv_conc_code));
@@ -833,7 +938,7 @@ AS
             srkrcmp.p_insert_srtrcmp (p_ridm,
                                       'P',
                                       g$_nls.get (
-                                         'BRIM_CSTM_PUSH-0023', --updated v1.0.3
+                                         'BRIM_CSTM_PUSH-0024',
                                          'SQL',
                                          'Concentration code %01% not processed - curriculum record not found for the application',
                                          lv_conc_code));
@@ -864,7 +969,7 @@ AS
             srkrcmp.p_insert_srtrcmp (p_ridm,
                                       'P',
                                       g$_nls.get (
-                                         'BRIM_CSTM_PUSH-0024', --updated v1.0.3
+                                         'BRIM_CSTM_PUSH-0025',
                                          'SQL',
                                          'Concentration code %01% not processed - found more than one field of study record for the application',
                                          lv_conc_code));
@@ -879,7 +984,7 @@ AS
             srkrcmp.p_insert_srtrcmp (p_ridm,
                                       'P',
                                       g$_nls.get (
-                                         'BRIM_CSTM_PUSH-0025', --updated v1.0.3
+                                         'BRIM_CSTM_PUSH-0026',
                                          'SQL',
                                          'Concentration code %01% not processed - field of study record not found for the application',
                                          lv_conc_code));
@@ -929,7 +1034,7 @@ AS
                   srkrcmp.p_insert_srtrcmp (p_ridm,
                                             'P',
                                             g$_nls.get (
-                                               'BRIM_CSTM_PUSH-0026', --updated v1.0.3
+                                               'BRIM_CSTM_PUSH-0027',
                                                'SQL',
                                                'Concentration code %01% not processed - concentration not valid for curriculum rule',
                                                lv_conc_code));
@@ -975,7 +1080,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH-0027', --updated v1.0.3
+                                           'BRIM_CSTM_PUSH-0028',
                                            'SQL',
                                            'Error occurred attempting to add field of study record for concentration; %01%',
                                            SQLERRM));
@@ -1004,7 +1109,7 @@ AS
             THEN
                raise_application_error (-20001,
                                         g$_nls.get (
-                                           'BRIM_CSTM_PUSH-0028', --updated v1.0.3
+                                           'BRIM_CSTM_PUSH-0029',
                                            'SQL',
                                            'Error occurred attempting to create application decision record: %01%',
                                            SQLERRM));
