@@ -1,4 +1,4 @@
-/* Formatted on 5/30/2017 9:22:33 AM (QP5 v5.300) */
+/* Formatted on 6/1/2017 2:19:22 PM (QP5 v5.300) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
     /****************************************************************************
@@ -42,6 +42,7 @@ AS
      1.2.2    20170426  Marie Hicks,    changed 'elcn_opportunity' to 'opportunity'
      1.2.3    20170530  Marie Hicks     changed new_highschoolgraddate parameter from
                                           'opportunity' to 'contact'
+     1.2.4    20170601  Marie Hicks     fliped 'opportunity' and 'contact' for sequencing
     ****************************************************************************/
 
 
@@ -415,8 +416,8 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm, 'contact',                    --updated v1.2.3
-                                          'new_legacycodeforbanner');
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.4
+                                              'new_legacycodeforbanner');
 
         FETCH srtcstm_c INTO lv_cstm_lgcy_code;
 
@@ -427,9 +428,9 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
-                                              'new_highschoolgraddate' --updated v1.0.2
-                                                                      );
+        OPEN srtcstm_c (p_ridm, 'contact',                    --updated v1.2.4
+                                          'new_highschoolgraddate' --updated v1.0.2
+                                                                  );
 
         FETCH srtcstm_c INTO lv_cstm_grad_date;
 
