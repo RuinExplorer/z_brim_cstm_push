@@ -1,4 +1,3 @@
-/* Formatted on 7/2/2018 2:36:14 PM (QP5 v5.313) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
     /****************************************************************************
@@ -182,6 +181,7 @@ AS
         lv_cstm_ints_code     srtcstm.srtcstm_value%TYPE := NULL; --deferement reason interest code from Recruiter
         lv_cstm_ssid_num      srtcstm.srtcstm_value%TYPE := NULL; --State Student Identification Number from CE Participation Form
         lv_cstm_fgce_code     srtcstm.srtcstm_value%TYPE := NULL; --first generation code from CE Participation form
+        lv_cstm_exfs_code     srtcstm.srtcstm_value%TYPE := NULL; --exploratory/undeclared focus area attribute code    
 
         lv_resd_code          srtprel.srtprel_resd_code%TYPE := NULL; --validated residency code
         lv_dcsn_code          srtprel.srtprel_apdc_code%TYPE := NULL; --validated decision code
@@ -197,6 +197,7 @@ AS
         lv_conc_code          srtprel.srtprel_majr_code%TYPE := NULL; --validated concentration code
         lv_ints_code          sorints.sorints_ints_code%TYPE := NULL; --converted deferment interest code
         lv_fgce_code          saraatt.saraatt_atts_code%TYPE := NULL; --validated first generation code from CE Participation Form
+        lv_exfs_code          saraatt.saraatt_atts_code%TYPE := NULL; --validated exploratory/undeclared focus area attribute code
 
         lv_pidm               srtiden.srtiden_pidm%TYPE := NULL; --matched pidm for accessing Banner tables
         lv_term_code          srtprel.srtprel_term_code%TYPE := NULL; --application term code
@@ -525,6 +526,21 @@ AS
         END IF;
 
         CLOSE srtcstm_c;
+        
+        OPEN srtcstm_c (p_ridm, 
+                        'datatel_usu',
+                        'usu_focusarea');
+        
+        FETCH srtcstm_c INTO lv_cstm_exfs_code;
+        
+        IF srtcstm_c%NOTFOUND
+        THEN 
+            lv_cstm_exfs_code := NULL;
+        END IF;
+        
+        CLOSE srtcstm_c;
+        
+        
 
         -- return if no values
         IF (    lv_cstm_resd_desc IS NULL
@@ -541,7 +557,8 @@ AS
             AND lv_cstm_conc_code IS NULL
             AND lv_cstm_ints_code IS NULL
             AND lv_cstm_ssid_num IS NULL
-            AND lv_cstm_fgce_code IS NULL)
+            AND lv_cstm_fgce_code IS NULL
+            AND lv_cstm_exfs_code IS NULL)
         THEN
             RETURN;
         END IF;
@@ -1331,6 +1348,43 @@ AS
                     raise_application_error (-20001,
                                              g$_nls.get (
                                                  'BRIM_CSTM_PUSH_0032',
+                                                 'SQL',
+                                                 'Error occurred attempting to create concurrent enrollment first generation attribute; %01%',
+                                                 SQLERRM));
+                    lv_dcsn_expt_cnt := lv_dcsn_expt_cnt + 1;
+            END;
+        END IF;
+        
+        
+        --verify valid exploratory/undeclared focus area code
+        IF (    lv_cstm_exfs_code IS NOT NULL
+            AND sb_stvatts.f_code_exists (TO_CHAR (lv_cstm_exfs_code)) != 'Y')
+        THEN
+            raise_application_error (-20001,
+                                     g$_nls.get (
+                                         'BRIM_CSTM_PUSH-0032',
+                                         'SQL',
+                                         'Invalid first generation code: %01%',
+                                         TO_CHAR (lv_cstm_exfs_code)));
+        END IF;
+
+        lv_exfs_code := TO_CHAR (lv_cstm_exfs_code);
+
+        -- create exploratory/undeclared focus area attribute
+        IF (lv_exfs_code IS NOT NULL)
+        THEN
+            BEGIN
+                baninst1.z_stu_attributes.p_saraatt_insert (
+                    p_pidm        => lv_pidm,
+                    p_term_code   => lv_term_code,
+                    p_appl_no     => lv_appl_no,
+                    p_atts_code   => lv_exfs_code);
+            EXCEPTION
+                WHEN OTHERS
+                THEN
+                    raise_application_error (-20001,
+                                             g$_nls.get (
+                                                 'BRIM_CSTM_PUSH_0033',
                                                  'SQL',
                                                  'Error occurred attempting to create concurrent enrollment first generation attribute; %01%',
                                                  SQLERRM));
