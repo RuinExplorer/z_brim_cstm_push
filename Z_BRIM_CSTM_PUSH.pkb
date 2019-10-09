@@ -11,6 +11,8 @@ AS
     1.0    20150810  Carl Ellsworth  Cleanup and revision for testing.
     1.0.1  20150811  Marie Hicks     Corrected a couple of the calls to the
                                        srtcstm_c cursor
+    1.0.2  20150811  Marie Hicks     Corrected a call to the srtcstm_c 
+                                       cursor concerning highschoolgraddate
    ****************************************************************************/
    PROCEDURE p_push (p_ridm NUMBER)
    IS
@@ -271,8 +273,8 @@ AS
       CLOSE srtcstm_c;
 
       OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
-                      'datatel_highschoolgraddate' --updated v1.0.1
+                      'contact', --updated v1.0.2
+                      'new_highschoolgraddate' --updated v1.0.2
         );
 
       FETCH srtcstm_c INTO lv_cstm_grad_date;
