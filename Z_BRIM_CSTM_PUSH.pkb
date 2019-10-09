@@ -1,4 +1,4 @@
-/* Formatted on 11/16/2015 6:05:52 PM (QP5 v5.269.14213.34746) */
+/* Formatted on 6/23/2016 4:52:39 PM (QP5 v5.287) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
    /****************************************************************************
@@ -17,6 +17,8 @@ AS
                                        fields needed to pull admission attributes
     1.0.4  20151116  Marie Hicks     Corrected custom field sequencing, altered
                                        concentration logic
+    1.0.4  20151116  Marie Hicks     conversion of the concentration code removed,
+                                       updated entity, and a couple column labels
    ****************************************************************************/
    PROCEDURE p_push (p_ridm NUMBER)
    IS
@@ -33,11 +35,6 @@ AS
       lv_cstm_scel_code     srtcstm.srtcstm_value%TYPE := NULL; --scholarship eligibility attribute from Recruiter
       lv_cstm_2bai_code     srtcstm.srtcstm_value%TYPE := NULL; --second bachelor aid attribute from Recruiter
       lv_cstm_site_code     srtcstm.srtcstm_value%TYPE := NULL; --site code from Recruiter
-
-      --REMOVED 1.0.4
-      --lv_cstm_conc_code     srtcstm.srtcstm_value%TYPE := NULL; --concentration code from Recruiter
-      --ADDED 1.0.4
-      lv_cstm_conc_desc     srtcstm.srtcstm_value%TYPE := NULL; --concentration description from Recruiter
       lv_cstm_conc_code     stvmajr.stvmajr_code%TYPE := NULL; --concentration description converted to code
 
       lv_resd_code          srtprel.srtprel_resd_code%TYPE := NULL; --validated residency code
@@ -217,9 +214,8 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
-                      'new_reentrystudent');
+      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
+                                        'new_usureentrystudent'); --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_rnty_code;
 
@@ -230,9 +226,8 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
-                      'new_firstgenerationcollege');
+      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
+                                        'new_usufirstgenerationcollege'); --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_fgen_code;
 
@@ -243,10 +238,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
-                      'new_veteran'                            --UPDATED 1.0.4
-                                   );
+      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
+                                        'new_veteranorservicemember' --updated v1.0.5
+                                                                    );
 
       FETCH srtcstm_c INTO lv_cstm_avet_code;
 
@@ -257,9 +251,8 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',   --UPDATED 1.0.4
-                      'new_veteranbenefits');
+      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
+                                        'new_benefitsveteran'); --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_vben_code;
 
@@ -281,9 +274,10 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.2
-                                        'new_highschoolgraddate' --updated v1.0.2
-                                                                );
+      OPEN srtcstm_c (p_ridm,
+                      'datatel_usuundergraduateapplication',  --updated v1.0.5
+                      'new_highschoolgraddate'                --updated v1.0.2
+                                              );
 
       FETCH srtcstm_c INTO lv_cstm_grad_date;
 
@@ -294,7 +288,7 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                       --UPDATED 1.0.4
+      OPEN srtcstm_c (p_ridm, 'contact',                      --UPDATED v1.0.4
                                         'new_scholarshipeligibility' --updated v1.0.3 (typo)
                                                                     );
 
@@ -307,8 +301,8 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                       --updated 1.0.4
-                                        'new_secondbachelorattribute' --updated 1.0.4
+      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.4
+                                        'new_secondbachelorattribute' --updated v1.0.4
                                                                      );
 
       FETCH srtcstm_c INTO lv_cstm_2bai_code;
@@ -331,14 +325,14 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                       --updated 1.0.4
+      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.4
                                         'new_emphasisspecialization');
 
-      FETCH srtcstm_c INTO lv_cstm_conc_desc;                  --updated 1.0.4
+      FETCH srtcstm_c INTO lv_cstm_conc_code;                 --updated v1.0.5
 
       IF srtcstm_c%NOTFOUND
       THEN
-         lv_cstm_conc_desc := NULL;                            --updated 1.0.4
+         lv_cstm_conc_code := NULL;                           --updated v1.0.5
       END IF;
 
       CLOSE srtcstm_c;
@@ -560,102 +554,6 @@ AS
 
       lv_site_code := TO_CHAR (lv_cstm_site_code);
 
-      /* BEGIN Section added v1.0.4 */
-      -- convert concentration description to code
-      IF (lv_cstm_conc_desc = 'Animal & Dairy')
-      THEN
-         lv_cstm_conc_code := 'ANDS';
-      ELSIF (lv_cstm_conc_desc = 'Biology')
-      THEN
-         lv_cstm_conc_code := 'BIOL';
-      ELSIF (lv_cstm_conc_desc = 'Biochemistry')
-      THEN
-         lv_cstm_conc_code := 'BIOC';
-      ELSIF (lv_cstm_conc_desc = 'Biotechnology')
-      THEN
-         lv_cstm_conc_code := 'BIOT';
-      ELSIF (lv_cstm_conc_desc = 'Bioveterinary')
-      THEN
-         lv_cstm_conc_code := 'BVET';
-      ELSIF (lv_cstm_conc_desc = 'Cellular Molecular')
-      THEN
-         lv_cstm_conc_code := 'CEMO';
-      ELSIF (lv_cstm_conc_desc = 'Chemical Education')
-      THEN
-         lv_cstm_conc_code := 'CHED';
-      ELSIF (lv_cstm_conc_desc = 'Dietetics')
-      THEN
-         lv_cstm_conc_code := 'DTCS';
-      ELSIF (lv_cstm_conc_desc = 'Ecological Biodiversity')
-      THEN
-         lv_cstm_conc_code := 'ECBD';
-      ELSIF (lv_cstm_conc_desc = 'Environmental Biology')
-      THEN
-         lv_cstm_conc_code := 'ENVR';
-      ELSIF (lv_cstm_conc_desc = 'Environmental Chemistry')
-      THEN
-         lv_cstm_conc_code := 'ENCH';
-      ELSIF (lv_cstm_conc_desc = 'Environmental Health')
-      THEN
-         lv_cstm_conc_code := 'ENHE';
-      ELSIF (lv_cstm_conc_desc = 'Equine Science & Management')
-      THEN
-         lv_cstm_conc_code := 'EQSM';
-      ELSIF (lv_cstm_conc_desc = 'Exercise Science')
-      THEN
-         lv_cstm_conc_code := 'EXSC';
-      ELSIF (lv_cstm_conc_desc = 'Food Science')
-      THEN
-         lv_cstm_conc_code := 'FDSC';
-      ELSIF (lv_cstm_conc_desc = 'History Teaching')
-      THEN
-         lv_cstm_conc_code := 'HTCH';
-      ELSIF (lv_cstm_conc_desc = 'Industrial Hygiene')
-      THEN
-         lv_cstm_conc_code := 'INHY';
-      ELSIF (lv_cstm_conc_desc = 'Life Science')
-      THEN
-         lv_cstm_conc_code := 'LISC';
-      ELSIF (lv_cstm_conc_desc = 'Nutrition Science')
-      THEN
-         lv_cstm_conc_code := 'NTSC';
-      ELSIF (lv_cstm_conc_desc = 'Physical Education Teaching')
-      THEN
-         lv_cstm_conc_code := 'PHET';
-      ELSIF (lv_cstm_conc_desc = 'Pre Physical Therapy')
-      THEN
-         lv_cstm_conc_code := 'PPTH';
-      ELSIF (lv_cstm_conc_desc = 'Professional Chemist')
-      THEN
-         lv_cstm_conc_code := 'PRCH';
-      ELSIF (lv_cstm_conc_desc = 'Public Health Education')
-      THEN
-         lv_cstm_conc_code := 'PHEE';
-      ELSIF (lv_cstm_conc_desc = 'French Teaching')
-      THEN
-         lv_cstm_conc_code := 'FRTE';
-      ELSIF (lv_cstm_conc_desc = 'German Teaching')
-      THEN
-         lv_cstm_conc_code := 'GETE';
-      ELSIF (lv_cstm_conc_desc = 'Spanish Teaching')
-      THEN
-         lv_cstm_conc_code := 'SPTE';
-      ELSIF (lv_cstm_conc_desc = 'English Teaching')
-      THEN
-         lv_cstm_conc_code := 'ENGT';
-      ELSIF (lv_cstm_conc_desc IS NOT NULL)
-      THEN
-         raise_application_error (-20001,
-                                  g$_nls.get (
-                                     'BRIM_CSTM_PUSH-0012',
-                                     'SQL',
-                                     'Invalid concentration description, cannot convert: %01%',
-                                     TO_CHAR (lv_cstm_conc_desc)));
-      ELSE
-         lv_cstm_conc_code := NULL;
-      END IF;
-
-      /* END section added v1.0.4 */
 
       --verify valid concentration code
       IF (    lv_cstm_conc_code IS NOT NULL
