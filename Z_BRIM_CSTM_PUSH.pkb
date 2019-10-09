@@ -1,4 +1,4 @@
-/* Formatted on 6/1/2017 2:19:22 PM (QP5 v5.300) */
+/* Formatted on 7/2/2018 2:36:14 PM (QP5 v5.313) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
     /****************************************************************************
@@ -43,6 +43,7 @@ AS
      1.2.3    20170530  Marie Hicks     changed new_highschoolgraddate parameter from
                                           'opportunity' to 'contact'
      1.2.4    20170601  Marie Hicks     fliped 'opportunity' and 'contact' for sequencing
+     1.2.5    20180702  Marie Hicks     added functionality to import SSID and firest gen status
     ****************************************************************************/
 
 
@@ -86,11 +87,10 @@ AS
         IF (v_count = 1)
         --if it exists, insert the interest record
         THEN
-            INSERT
-              INTO sorints (sorints_pidm,
-                            sorints_ints_code,
-                            sorints_activity_date)
-            VALUES (p_pidm, p_ints_code, p_date);
+            INSERT INTO sorints (sorints_pidm,
+                                 sorints_ints_code,
+                                 sorints_activity_date)
+                 VALUES (p_pidm, p_ints_code, p_date);
         ELSIF (v_count = 0)
         --if not raise validation exception
         THEN
@@ -180,6 +180,8 @@ AS
         lv_cstm_site_code     srtcstm.srtcstm_value%TYPE := NULL; --site code from Recruiter
         lv_cstm_conc_code     stvmajr.stvmajr_code%TYPE := NULL; --concentration code from Recruiter
         lv_cstm_ints_code     srtcstm.srtcstm_value%TYPE := NULL; --deferement reason interest code from Recruiter
+        lv_cstm_ssid_num      srtcstm.srtcstm_value%TYPE := NULL; --State Student Identification Number from CE Participation Form
+        lv_cstm_fgce_code     srtcstm.srtcstm_value%TYPE := NULL; --first generation code from CE Participation form
 
         lv_resd_code          srtprel.srtprel_resd_code%TYPE := NULL; --validated residency code
         lv_dcsn_code          srtprel.srtprel_apdc_code%TYPE := NULL; --validated decision code
@@ -194,6 +196,7 @@ AS
         lv_site_code          srtprel.srtprel_site_code%TYPE := NULL; --validated site code
         lv_conc_code          srtprel.srtprel_majr_code%TYPE := NULL; --validated concentration code
         lv_ints_code          sorints.sorints_ints_code%TYPE := NULL; --converted deferment interest code
+        lv_fgce_code          saraatt.saraatt_atts_code%TYPE := NULL; --validated first generation code from CE Participation Form
 
         lv_pidm               srtiden.srtiden_pidm%TYPE := NULL; --matched pidm for accessing Banner tables
         lv_term_code          srtprel.srtprel_term_code%TYPE := NULL; --application term code
@@ -292,28 +295,24 @@ AS
                    AND bs.sorccon_majr_code_conc = p_majr_code_conc
                    AND NVL (bs.sorccon_cmjr_rule, 0) = NVL (p_cmjr_rule, 0)
                    AND bs.sorccon_term_code_eff =
-                           (SELECT MAX (m.sorccon_term_code_eff)
-                              FROM sorccon m
-                             WHERE     m.sorccon_curr_rule =
-                                           bs.sorccon_curr_rule
-                                   AND NVL (m.sorccon_cmjr_rule, 0) =
-                                           NVL (bs.sorccon_cmjr_rule, 0)
-                                   AND m.sorccon_majr_code_conc =
-                                           bs.sorccon_majr_code_conc
-                                   AND m.sorccon_term_code_eff <=
-                                           NVL (
-                                               p_lfos_term_code_ctlg,
-                                               NVL (p_lcur_term_code_ctlg,
-                                                    p_lcur_term_code)));
+                       (SELECT MAX (m.sorccon_term_code_eff)
+                          FROM sorccon m
+                         WHERE     m.sorccon_curr_rule = bs.sorccon_curr_rule
+                               AND NVL (m.sorccon_cmjr_rule, 0) =
+                                   NVL (bs.sorccon_cmjr_rule, 0)
+                               AND m.sorccon_majr_code_conc =
+                                   bs.sorccon_majr_code_conc
+                               AND m.sorccon_term_code_eff <=
+                                   NVL (
+                                       p_lfos_term_code_ctlg,
+                                       NVL (p_lcur_term_code_ctlg,
+                                            p_lcur_term_code)));
     BEGIN
         -- get tape load data
         OPEN srtiden_srtprel_c (p_ridm);
 
         FETCH srtiden_srtprel_c
-            INTO lv_pidm,
-                 lv_term_code,
-                 lv_appl_id,
-                 lv_user;
+            INTO lv_pidm, lv_term_code, lv_appl_id, lv_user;
 
         IF srtiden_srtprel_c%NOTFOUND
         THEN
@@ -342,7 +341,7 @@ AS
 
         -- get custom values
         OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
-                                              'new_usuresidency');
+                                               'new_usuresidency');
 
         FETCH srtcstm_c INTO lv_cstm_resd_desc;
 
@@ -354,7 +353,7 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
-                                              'new_proposeddecision');
+                                               'new_proposeddecision');
 
         FETCH srtcstm_c INTO lv_cstm_dcsn_code;
 
@@ -366,7 +365,7 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'datatel_usu',                --updated v1.1.6
-                                              'new_usureentrystudent'); --updated v1.0.5
+                                               'new_usureentrystudent'); --updated v1.0.5
 
         FETCH srtcstm_c INTO lv_cstm_rnty_code;
 
@@ -392,8 +391,8 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'datatel_usu',                --updated v1.1.6
-                                              'new_veteranorservicemember' --updated v1.0.5
-                                                                          );
+                                               'new_veteranorservicemember' --updated v1.0.5
+                                                                           );
 
         FETCH srtcstm_c INTO lv_cstm_avet_code;
 
@@ -405,7 +404,7 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'datatel_usu',                --updated v1.1.6
-                                              'new_benefitsveteran'); --updated v1.0.5
+                                               'new_benefitsveteran'); --updated v1.0.5
 
         FETCH srtcstm_c INTO lv_cstm_vben_code;
 
@@ -417,7 +416,7 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.4
-                                              'new_legacycodeforbanner');
+                                               'new_legacycodeforbanner');
 
         FETCH srtcstm_c INTO lv_cstm_lgcy_code;
 
@@ -429,8 +428,8 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'contact',                    --updated v1.2.4
-                                          'new_highschoolgraddate' --updated v1.0.2
-                                                                  );
+                                           'new_highschoolgraddate' --updated v1.0.2
+                                                                   );
 
         FETCH srtcstm_c INTO lv_cstm_grad_date;
 
@@ -442,8 +441,8 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
-                                              'new_scholarshipeligibility' --updated v1.0.3 (typo)
-                                                                          );
+                                               'new_scholarshipeligibility' --updated v1.0.3 (typo)
+                                                                           );
 
         FETCH srtcstm_c INTO lv_cstm_scel_code;
 
@@ -455,8 +454,8 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
-                                              'new_secondbachelorattribute' --updated v1.0.4
-                                                                           );
+                                               'new_secondbachelorattribute' --updated v1.0.4
+                                                                            );
 
         FETCH srtcstm_c INTO lv_cstm_2bai_code;
 
@@ -468,7 +467,7 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
-                                              'new_bannersitecode');
+                                               'new_bannersitecode');
 
         FETCH srtcstm_c INTO lv_cstm_site_code;
 
@@ -480,7 +479,7 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
-                                              'new_emphasisspecialization');
+                                               'new_emphasisspecialization');
 
         FETCH srtcstm_c INTO lv_cstm_conc_code;               --updated v1.0.5
 
@@ -492,13 +491,37 @@ AS
         CLOSE srtcstm_c;
 
         OPEN srtcstm_c (p_ridm, 'datatel_usu',                --updated v1.1.6
-                                              'new_defermentreason');
+                                               'new_defermentreason');
 
         FETCH srtcstm_c INTO lv_cstm_ints_code;
 
         IF srtcstm_c%NOTFOUND
         THEN
             lv_cstm_ints_code := NULL;
+        END IF;
+
+        CLOSE srtcstm_c;
+
+        OPEN srtcstm_c (p_ridm, 'elcn_ceparticipation', 'cepf_ssid');
+
+        FETCH srtcstm_c INTO lv_cstm_ssid_num;
+
+        IF srtcstm_c%NOTFOUND
+        THEN
+            lv_cstm_ssid_num := NULL;
+        END IF;
+
+        CLOSE srtcstm_c;
+
+        OPEN srtcstm_c (p_ridm,
+                        'elcn_ceparticipation',
+                        'cepf_firstgenerationcollege');
+
+        FETCH srtcstm_c INTO lv_cstm_fgce_code;
+
+        IF srtcstm_c%NOTFOUND
+        THEN
+            lv_cstm_fgce_code := NULL;
         END IF;
 
         CLOSE srtcstm_c;
@@ -516,7 +539,9 @@ AS
             AND lv_cstm_2bai_code IS NULL
             AND lv_cstm_site_code IS NULL
             AND lv_cstm_conc_code IS NULL
-            AND lv_cstm_ints_code IS NULL)
+            AND lv_cstm_ints_code IS NULL
+            AND lv_cstm_ssid_num IS NULL
+            AND lv_cstm_fgce_code IS NULL)
         THEN
             RETURN;
         END IF;
@@ -732,7 +757,8 @@ AS
         --verify valid concentration code
         IF (    lv_cstm_conc_code IS NOT NULL
             AND gb_stvmajr.f_concentration_code_exists (
-                    TO_CHAR (lv_cstm_conc_code)) != 'Y')
+                    TO_CHAR (lv_cstm_conc_code)) !=
+                'Y')
         THEN
             raise_application_error (-20001,
                                      g$_nls.get (
@@ -1131,34 +1157,62 @@ AS
 
             BEGIN
                 sb_fieldofstudy.p_create (
-                    p_pidm                => lv_fieldofstudy_rec.r_pidm,
-                    p_lcur_seqno          => lv_fieldofstudy_rec.r_lcur_seqno,
-                    p_seqno               => NULL,
-                    p_lfst_code           => sb_fieldofstudy_str.f_CONCENTRATION,
-                    p_term_code           => lv_fieldofstudy_rec.r_term_code,
-                    p_priority_no         => lv_fieldofstudy_rec.r_priority_no,
-                    p_csts_code           => lv_fieldofstudy_rec.r_csts_code,
-                    p_cact_code           => lv_fieldofstudy_rec.r_cact_code,
-                    p_data_origin         => lv_fieldofstudy_rec.r_data_origin,
-                    p_user_id             => lv_fieldofstudy_rec.r_user_id,
-                    p_majr_code           => lv_conc_code,
-                    p_term_code_ctlg      => lv_fieldofstudy_rec.r_term_code_ctlg,
-                    p_term_code_end       => lv_fieldofstudy_rec.r_term_code_end,
-                    p_dept_code           => lv_fieldofstudy_rec.r_dept_code,
-                    p_lfos_rule           => lv_ccon_rule,
-                    p_conc_attach_rule    => lv_conc_attach_rule,
-                    p_start_date          => lv_fieldofstudy_rec.r_start_date,
-                    p_end_date            => lv_fieldofstudy_rec.r_end_date,
-                    p_tmst_code           => lv_fieldofstudy_rec.r_tmst_code,
-                    p_majr_code_attach    => lv_majr_code_attach,
-                    p_rolled_seqno        => NULL,
-                    p_override_severity   => 'N',
-                    p_rowid_out           => lv_rowid_out,
-                    p_curr_error_out      => lv_curr_error_out,
-                    p_severity_out        => lv_severity_out,
-                    p_lfos_seqno_out      => lv_lfos_seqno_out,
-                    p_user_id_update      => lv_fieldofstudy_rec.r_user_id_update,
-                    p_current_cde         => lv_fieldofstudy_rec.r_current_cde);
+                    p_pidm =>
+                        lv_fieldofstudy_rec.r_pidm,
+                    p_lcur_seqno =>
+                        lv_fieldofstudy_rec.r_lcur_seqno,
+                    p_seqno =>
+                        NULL,
+                    p_lfst_code =>
+                        sb_fieldofstudy_str.f_CONCENTRATION,
+                    p_term_code =>
+                        lv_fieldofstudy_rec.r_term_code,
+                    p_priority_no =>
+                        lv_fieldofstudy_rec.r_priority_no,
+                    p_csts_code =>
+                        lv_fieldofstudy_rec.r_csts_code,
+                    p_cact_code =>
+                        lv_fieldofstudy_rec.r_cact_code,
+                    p_data_origin =>
+                        lv_fieldofstudy_rec.r_data_origin,
+                    p_user_id =>
+                        lv_fieldofstudy_rec.r_user_id,
+                    p_majr_code =>
+                        lv_conc_code,
+                    p_term_code_ctlg =>
+                        lv_fieldofstudy_rec.r_term_code_ctlg,
+                    p_term_code_end =>
+                        lv_fieldofstudy_rec.r_term_code_end,
+                    p_dept_code =>
+                        lv_fieldofstudy_rec.r_dept_code,
+                    p_lfos_rule =>
+                        lv_ccon_rule,
+                    p_conc_attach_rule =>
+                        lv_conc_attach_rule,
+                    p_start_date =>
+                        lv_fieldofstudy_rec.r_start_date,
+                    p_end_date =>
+                        lv_fieldofstudy_rec.r_end_date,
+                    p_tmst_code =>
+                        lv_fieldofstudy_rec.r_tmst_code,
+                    p_majr_code_attach =>
+                        lv_majr_code_attach,
+                    p_rolled_seqno =>
+                        NULL,
+                    p_override_severity =>
+                        'N',
+                    p_rowid_out =>
+                        lv_rowid_out,
+                    p_curr_error_out =>
+                        lv_curr_error_out,
+                    p_severity_out =>
+                        lv_severity_out,
+                    p_lfos_seqno_out =>
+                        lv_lfos_seqno_out,
+                    p_user_id_update =>
+                        lv_fieldofstudy_rec.r_user_id_update,
+                    p_current_cde =>
+                        lv_fieldofstudy_rec.r_current_cde);
             EXCEPTION
                 WHEN OTHERS
                 THEN
@@ -1214,6 +1268,71 @@ AS
                                                  'BRIM_CSTM_PUSH_0030',
                                                  'SQL',
                                                  'Error occurred attempting to create deferment interest code; %01%',
+                                                 SQLERRM));
+                    lv_dcsn_expt_cnt := lv_dcsn_expt_cnt + 1;
+            END;
+        END IF;
+
+        -- create ssid number
+        IF (lv_cstm_ssid_num IS NOT NULL)
+        THEN
+            BEGIN
+                BANINST1.z_ssid_interface.p_set_banner_ssid (
+                    p_pidm        => lv_pidm,
+                    p_ssid        => lv_cstm_ssid_num,
+                    p_user_name   => 'BRIM_USER');
+            EXCEPTION
+                WHEN OTHERS
+                THEN
+                    raise_application_error (-20001,
+                                             g$_nls.get (
+                                                 'BRIM_CSTM_PUSH-0030',
+                                                 'SQL',
+                                                 'Error occurred attempting to create SSID record: %01%',
+                                                 SQLERRM));
+            END;
+        END IF;
+
+        --convert concurrent enrollment first generation value to attribute
+        IF (lv_cstm_fgce_code = 'Yes')
+        THEN
+            lv_cstm_fgce_code := 'FGS';
+        ELSE
+            lv_cstm_fgce_code := NULL;
+        END IF;
+
+
+        --verify valid concurrent enrollment first generation code
+        IF (    lv_cstm_fgce_code IS NOT NULL
+            AND sb_stvatts.f_code_exists (TO_CHAR (lv_cstm_fgce_code)) != 'Y')
+        THEN
+            raise_application_error (-20001,
+                                     g$_nls.get (
+                                         'BRIM_CSTM_PUSH-0031',
+                                         'SQL',
+                                         'Invalid first generation code: %01%',
+                                         TO_CHAR (lv_cstm_fgce_code)));
+        END IF;
+
+        lv_fgce_code := TO_CHAR (lv_cstm_fgce_code);
+
+        -- create  concurrent enrollment first generation attribute
+        IF (lv_fgce_code IS NOT NULL)
+        THEN
+            BEGIN
+                baninst1.z_stu_attributes.p_saraatt_insert (
+                    p_pidm        => lv_pidm,
+                    p_term_code   => lv_term_code,
+                    p_appl_no     => lv_appl_no,
+                    p_atts_code   => lv_fgce_code);
+            EXCEPTION
+                WHEN OTHERS
+                THEN
+                    raise_application_error (-20001,
+                                             g$_nls.get (
+                                                 'BRIM_CSTM_PUSH_0032',
+                                                 'SQL',
+                                                 'Error occurred attempting to create concurrent enrollment first generation attribute; %01%',
                                                  SQLERRM));
                     lv_dcsn_expt_cnt := lv_dcsn_expt_cnt + 1;
             END;
