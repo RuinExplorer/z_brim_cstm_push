@@ -1,3 +1,4 @@
+/* Formatted on 5/2/2017 12:53:38 PM (QP5 v5.300) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
     /****************************************************************************
@@ -38,6 +39,7 @@ AS
                                           calls. unexpected changte in ellucian functionality
      1.2.1    20170426  Marie Hicks,    changed 'contact' to 'elcn_opportunity'
                         Carl Ellsworth  formatting changes
+     1.2.2    20170426  Marie Hicks,    changed 'elcn_opportunity' to 'opportunity'
     ****************************************************************************/
 
 
@@ -336,8 +338,8 @@ AS
         CLOSE srthsch_c;
 
         -- get custom values
-        OPEN srtcstm_c (p_ridm, 'elcn_opportunity',             --updated v2.0
-                                                   'new_usuresidency');
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_usuresidency');
 
         FETCH srtcstm_c INTO lv_cstm_resd_desc;
 
@@ -348,8 +350,8 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm, 'elcn_opportunity',             --updated v2.0
-                                                   'new_proposeddecision');
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_proposeddecision');
 
         FETCH srtcstm_c INTO lv_cstm_dcsn_code;
 
@@ -411,8 +413,8 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm, 'elcn_opportunity',             --updated v2.0
-                                                   'new_legacycodeforbanner');
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_legacycodeforbanner');
 
         FETCH srtcstm_c INTO lv_cstm_lgcy_code;
 
@@ -423,9 +425,9 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm, 'elcn_opportunity',             --updated v2.0
-                                                   'new_highschoolgraddate' --updated v1.0.2
-                                                                           );
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_highschoolgraddate' --updated v1.0.2
+                                                                      );
 
         FETCH srtcstm_c INTO lv_cstm_grad_date;
 
@@ -436,10 +438,9 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm,
-                        'elcn_opportunity',                     --updated v2.0
-                        'new_scholarshipeligibility'   --updated v1.0.3 (typo)
-                                                    );
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_scholarshipeligibility' --updated v1.0.3 (typo)
+                                                                          );
 
         FETCH srtcstm_c INTO lv_cstm_scel_code;
 
@@ -450,10 +451,9 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm,
-                        'elcn_opportunity',                     --updated v2.0
-                        'new_secondbachelorattribute'         --updated v1.0.4
-                                                     );
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_secondbachelorattribute' --updated v1.0.4
+                                                                           );
 
         FETCH srtcstm_c INTO lv_cstm_2bai_code;
 
@@ -464,8 +464,8 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm, 'elcn_opportunity',             --updated v2.0
-                                                   'new_bannersitecode');
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_bannersitecode');
 
         FETCH srtcstm_c INTO lv_cstm_site_code;
 
@@ -476,9 +476,8 @@ AS
 
         CLOSE srtcstm_c;
 
-        OPEN srtcstm_c (p_ridm,
-                        'elcn_opportunity',                     --updated v2.0
-                        'new_emphasisspecialization');
+        OPEN srtcstm_c (p_ridm, 'opportunity',                --updated v1.2.2
+                                              'new_emphasisspecialization');
 
         FETCH srtcstm_c INTO lv_cstm_conc_code;               --updated v1.0.5
 
