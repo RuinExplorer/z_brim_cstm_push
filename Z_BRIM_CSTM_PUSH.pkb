@@ -1,14 +1,14 @@
-/* Formatted on 6/28/2016 1:30:55 PM (QP5 v5.287) */
+/* Formatted on 6/28/2016 3:16:13 PM (QP5 v5.287) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
    /****************************************************************************
     REVISIONS:
     Ver    Date      Author          Description
     -----  --------  --------------  -------------------------------------------
-    0.9    20150807  Marie Hicks     Created this package based on sample code
+    0.9.0  20150807  Marie Hicks     Created this package based on sample code
                                        found in Integrating Recruiter with Banner
                                        release 3.7.1 page 28
-    1.0    20150810  Carl Ellsworth  Cleanup and revision for testing.
+    1.0.0  20150810  Carl Ellsworth  Cleanup and revision for testing.
     1.0.1  20150811  Marie Hicks     Corrected a couple of the calls to the
                                        srtcstm_c cursor
     1.0.2  20150811  Marie Hicks     Corrected a call to the srtcstm_c
@@ -21,7 +21,33 @@ AS
                                        updated entity, and a couple column labels
     1.0.6  20160628  Marie Hicks     corrected 'contact' variable to
                                        'datatel_usuundergraduateapplication'
+    1.1.0  20160628  Carl Ellsworth  added p_update_transfer_gpa
    ****************************************************************************/
+
+
+   --p_update_transfer_gpa is a procedure requested by Joan Rudd in
+   -- the School of Graduate Studies. They calculate a last 60 credit GPA,
+   -- and input this to CRM Recruit. That value is not pushed to Banner.
+   -- this function allows update to Banner intended to be called in batch.
+   -- When CRM Recruit becomes more robust or USU processes change,
+   -- BANINST1.GB_PCOL_DEGREE contains a more sophisticated table API
+   PROCEDURE p_update_transfer_gpa (
+      p_pidm               NUMBER,
+      p_sbgi_code          VARCHAR2,
+      p_gpa_transferred    NUMBER,
+      p_degc_code          VARCHAR2 DEFAULT '000000')
+   IS
+   BEGIN
+      UPDATE sordegr
+         SET sordegr_gpa_transferred = p_gpa_transferred
+       WHERE     sordegr_pidm = p_pidm
+             AND sordegr_sbgi_code = p_sbgi_code
+             AND sordegr_degc_code = p_degc_code;
+   END p_update_transfer_gpa;
+
+
+   --p_push is the main procedure provided by ellucian and updated by Marie to
+   -- contain custom fields specific to USU processes.
    PROCEDURE p_push (p_ridm NUMBER)
    IS
       --
