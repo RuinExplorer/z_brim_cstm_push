@@ -546,7 +546,7 @@ AS
 
         OPEN srtcstm_c (p_ridm,
                         'contact',
-                        'elcn_unformattedmessageingnumber');
+                        'elcn_unformattedmessagingnumber');
 
         FETCH srtcstm_c INTO lv_cstm_cblu_num;
 
