@@ -9,6 +9,8 @@ AS
                                        found in Integrating Recruiter with Banner
                                        release 3.7.1 page 28
     1.0    20150810  Carl Ellsworth  Cleanup and revision for testing.
+    1.0.1  20150811  Marie Hicks     Corrected a couple of the calls to the
+                                       srtcstm_c cursor
    ****************************************************************************/
    PROCEDURE p_push (p_ridm NUMBER)
    IS
@@ -193,7 +195,7 @@ AS
       CLOSE srtcstm_c;
 
       OPEN srtcstm_c (p_ridm,
-                      'datatel_usuundergraduateapplication',
+                      'contact', --updated v1.0.1
                       'new_proposeddecision');
 
       FETCH srtcstm_c INTO lv_cstm_dcsn_code;
@@ -270,7 +272,8 @@ AS
 
       OPEN srtcstm_c (p_ridm,
                       'datatel_usuundergraduateapplication',
-                      'datatel_ged_date');
+                      'datatel_highschoolgraddate' --updated v1.0.1
+        );
 
       FETCH srtcstm_c INTO lv_cstm_grad_date;
 
