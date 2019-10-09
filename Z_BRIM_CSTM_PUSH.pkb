@@ -1,4 +1,4 @@
-/* Formatted on 6/23/2016 4:52:39 PM (QP5 v5.287) */
+/* Formatted on 6/28/2016 1:30:55 PM (QP5 v5.287) */
 CREATE OR REPLACE PACKAGE BODY BANINST1.z_brim_cstm_push
 AS
    /****************************************************************************
@@ -17,8 +17,10 @@ AS
                                        fields needed to pull admission attributes
     1.0.4  20151116  Marie Hicks     Corrected custom field sequencing, altered
                                        concentration logic
-    1.0.4  20151116  Marie Hicks     conversion of the concentration code removed,
+    1.0.5  20160623  Marie Hicks     conversion of the concentration code removed,
                                        updated entity, and a couple column labels
+    1.0.6  20160628  Marie Hicks     corrected 'contact' variable to
+                                       'datatel_usuundergraduateapplication'
    ****************************************************************************/
    PROCEDURE p_push (p_ridm NUMBER)
    IS
@@ -214,8 +216,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
-                                        'new_usureentrystudent'); --updated v1.0.5
+      OPEN srtcstm_c (p_ridm,
+                      'datatel_usuundergraduateapplication',  --updated v1.0.6
+                      'new_usureentrystudent');               --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_rnty_code;
 
@@ -226,8 +229,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
-                                        'new_usufirstgenerationcollege'); --updated v1.0.5
+      OPEN srtcstm_c (p_ridm,
+                      'datatel_usuundergraduateapplication',  --updated v1.0.6
+                      'new_usufirstgenerationcollege');       --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_fgen_code;
 
@@ -238,9 +242,10 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
-                                        'new_veteranorservicemember' --updated v1.0.5
-                                                                    );
+      OPEN srtcstm_c (p_ridm,
+                      'datatel_usuundergraduateapplication',  --updated v1.0.6
+                      'new_veteranorservicemember'            --updated v1.0.5
+                                                  );
 
       FETCH srtcstm_c INTO lv_cstm_avet_code;
 
@@ -251,8 +256,9 @@ AS
 
       CLOSE srtcstm_c;
 
-      OPEN srtcstm_c (p_ridm, 'contact',                      --updated v1.0.5
-                                        'new_benefitsveteran'); --updated v1.0.5
+      OPEN srtcstm_c (p_ridm,
+                      'datatel_usuundergraduateapplication',  --updated v1.0.6
+                      'new_benefitsveteran');                 --updated v1.0.5
 
       FETCH srtcstm_c INTO lv_cstm_vben_code;
 
